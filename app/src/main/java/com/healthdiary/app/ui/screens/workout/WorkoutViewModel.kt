@@ -1,28 +1,50 @@
 package com.healthdiary.app.ui.screens.workout
 
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.healthdiary.app.HealthDiaryApp
+import com.healthdiary.app.data.local.DailyWorkoutStat
 import com.healthdiary.app.data.local.ExerciseEntity
-import com.healthdiary.app.data.local.WorkoutSessionEntity
 import com.healthdiary.app.data.repository.ExerciseDraft
 import com.healthdiary.app.data.repository.SetDraft
 import com.healthdiary.app.util.Dates
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class WorkoutViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as HealthDiaryApp).container
 
-    val sessions: StateFlow<List<WorkoutSessionEntity>> =
-        container.workoutRepository.allSessions
+    val dailyStats: StateFlow<List<DailyWorkoutStat>> =
+        container.workoutRepository.dailyStats
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val weeklyStats: StateFlow<List<DailyWorkoutStat>> =
+        container.workoutRepository.dailyStats
+            .map { stats ->
+                val byDate = stats.associateBy { it.date }
+                val today = LocalDate.now()
+                (0..6).map { offset ->
+                    val date = today.minusDays(6L - offset).toString()
+                    byDate[date] ?: DailyWorkoutStat(
+                        date = date,
+                        sessionCount = 0,
+                        totalSets = 0,
+                        totalReps = 0,
+                        totalVolumeKg = 0f,
+                        totalDurationMs = 0L,
+                        exerciseCount = 0
+                    )
+                }
+            }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun deleteSession(id: Long) {

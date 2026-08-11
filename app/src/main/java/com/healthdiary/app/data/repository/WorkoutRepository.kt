@@ -1,12 +1,16 @@
 package com.healthdiary.app.data.repository
 
 import com.healthdiary.app.data.local.AppDatabase
+import com.healthdiary.app.data.local.DailyWorkoutStat
 import com.healthdiary.app.data.local.ExerciseEntity
 import com.healthdiary.app.data.local.WorkoutExerciseEntity
+import com.healthdiary.app.data.local.WorkoutExerciseWithSets
 import com.healthdiary.app.data.local.WorkoutSessionEntity
 import com.healthdiary.app.data.local.WorkoutSessionWithDetails
+import com.healthdiary.app.data.local.WorkoutSessionWithDetailsAndSets
 import com.healthdiary.app.data.local.WorkoutSetEntity
 import com.healthdiary.app.data.media.MediaStore
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.Flow
 
 data class SetDraft(
@@ -29,6 +33,36 @@ class WorkoutRepository(
     @Suppress("unused") private val mediaStore: MediaStore
 ) {
     val allSessions: Flow<List<WorkoutSessionEntity>> = db.workoutDao().observeAllSessions()
+
+    val allSessionDetails: Flow<List<WorkoutSessionWithDetailsAndSets>> =
+        combine(
+            db.workoutDao().observeAllSessions(),
+            db.workoutDao().observeAllExercises(),
+            db.workoutDao().observeAllSets()
+        ) { sessions, exercises, sets ->
+            sessions.map { session ->
+                WorkoutSessionWithDetailsAndSets(
+                    session = session,
+                    exercises = exercises
+                        .filter { it.sessionId == session.id }
+                        .sortedBy { it.orderIndex }
+                        .map { exercise ->
+                            WorkoutExerciseWithSets(
+                                exercise = exercise,
+                                sets = sets
+                                    .filter { it.exerciseId == exercise.id }
+                                    .sortedBy { it.setNumber }
+                            )
+                        }
+                )
+            }
+        }
+
+    val dailyStats: Flow<List<DailyWorkoutStat>> =
+        db.workoutDao().observeDailyStats()
+
+    fun dailyStatsByDate(date: String): Flow<DailyWorkoutStat?> =
+        db.workoutDao().observeDailyStatsByDate(date)
 
     fun sessionsByDate(date: String): Flow<List<WorkoutSessionEntity>> =
         db.workoutDao().observeSessionsByDate(date)

@@ -22,6 +22,50 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM workout_sessions ORDER BY date DESC, startTime DESC") fun observeAllSessions(): Flow<List<WorkoutSessionEntity>>
     @Query("SELECT * FROM workout_sessions WHERE date = :date ORDER BY startTime DESC") fun observeSessionsByDate(date: String): Flow<List<WorkoutSessionEntity>>
+    @Query("SELECT * FROM workout_exercises") fun observeAllExercises(): Flow<List<WorkoutExerciseEntity>>
+    @Query("SELECT * FROM workout_sets") fun observeAllSets(): Flow<List<WorkoutSetEntity>>
+    @Query(
+        """
+        SELECT
+            ws.date AS date,
+            COUNT(DISTINCT ws.id) AS sessionCount,
+            COUNT(wst.id) AS totalSets,
+            COALESCE(SUM(wst.reps), 0) AS totalReps,
+            COALESCE(SUM(wst.weightKg * wst.reps), 0) AS totalVolumeKg,
+            COALESCE((
+                SELECT SUM(CASE WHEN s2.endTime IS NOT NULL THEN s2.endTime - s2.startTime ELSE 0 END)
+                FROM workout_sessions s2
+                WHERE s2.date = ws.date
+            ), 0) AS totalDurationMs,
+            COUNT(DISTINCT we.exerciseName) AS exerciseCount
+        FROM workout_sessions ws
+        LEFT JOIN workout_exercises we ON we.sessionId = ws.id
+        LEFT JOIN workout_sets wst ON wst.exerciseId = we.id
+        GROUP BY ws.date
+        ORDER BY ws.date DESC
+        """
+    ) fun observeDailyStats(): Flow<List<DailyWorkoutStat>>
+    @Query(
+        """
+        SELECT
+            ws.date AS date,
+            COUNT(DISTINCT ws.id) AS sessionCount,
+            COUNT(wst.id) AS totalSets,
+            COALESCE(SUM(wst.reps), 0) AS totalReps,
+            COALESCE(SUM(wst.weightKg * wst.reps), 0) AS totalVolumeKg,
+            COALESCE((
+                SELECT SUM(CASE WHEN s2.endTime IS NOT NULL THEN s2.endTime - s2.startTime ELSE 0 END)
+                FROM workout_sessions s2
+                WHERE s2.date = ws.date
+            ), 0) AS totalDurationMs,
+            COUNT(DISTINCT we.exerciseName) AS exerciseCount
+        FROM workout_sessions ws
+        LEFT JOIN workout_exercises we ON we.sessionId = ws.id
+        LEFT JOIN workout_sets wst ON wst.exerciseId = we.id
+        WHERE ws.date = :date
+        GROUP BY ws.date
+        """
+    ) fun observeDailyStatsByDate(date: String): Flow<DailyWorkoutStat?>
     @Transaction @Query("SELECT * FROM workout_sessions WHERE id = :id") fun observeSessionDetails(id: Long): Flow<WorkoutSessionWithDetails?>
     @Query("SELECT * FROM workout_sessions WHERE id = :id") suspend fun getSession(id: Long): WorkoutSessionEntity?
     @Transaction @Query("SELECT * FROM workout_sessions WHERE id = :id") suspend fun getSessionDetails(id: Long): WorkoutSessionWithDetails?

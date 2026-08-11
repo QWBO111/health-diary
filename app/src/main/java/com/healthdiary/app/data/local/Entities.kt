@@ -52,6 +52,28 @@ data class WorkoutSessionWithDetails(
     val exercises: List<WorkoutExerciseEntity>
 )
 
+data class WorkoutExerciseWithSets(
+    @Embedded val exercise: WorkoutExerciseEntity,
+    @Relation(parentColumn = "id", entityColumn = "exerciseId")
+    val sets: List<WorkoutSetEntity>
+)
+
+data class WorkoutSessionWithDetailsAndSets(
+    @Embedded val session: WorkoutSessionEntity,
+    @Relation(parentColumn = "id", entityColumn = "sessionId")
+    val exercises: List<WorkoutExerciseWithSets>
+)
+
+data class DailyWorkoutStat(
+    val date: String,
+    val sessionCount: Int,
+    val totalSets: Int,
+    val totalReps: Int,
+    val totalVolumeKg: Float,
+    val totalDurationMs: Long,
+    val exerciseCount: Int
+)
+
 // ---------- 饮食 ----------
 
 @Entity(tableName = "meal_records")

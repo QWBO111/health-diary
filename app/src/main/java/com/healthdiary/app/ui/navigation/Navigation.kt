@@ -20,6 +20,7 @@ import com.healthdiary.app.ui.screens.diary.DiaryScreen
 import com.healthdiary.app.ui.screens.diet.DietScreen
 import com.healthdiary.app.ui.screens.settings.SettingsScreen
 import com.healthdiary.app.ui.screens.today.TodayScreen
+import com.healthdiary.app.ui.screens.workout.WorkoutDayScreen
 import com.healthdiary.app.ui.screens.workout.WorkoutEditScreen
 import com.healthdiary.app.ui.screens.workout.WorkoutScreen
 
@@ -38,6 +39,11 @@ sealed class Destination(
     object WorkoutEdit {
         const val route = "workout_edit?sessionId={sessionId}"
         fun create(sessionId: Long = -1L) = "workout_edit?sessionId=$sessionId"
+    }
+
+    object WorkoutDay {
+        const val route = "workout_day?date={date}"
+        fun create(date: String) = "workout_day?date=$date"
     }
 
     companion object {
@@ -66,6 +72,23 @@ fun HealthDiaryNavHost(
                 onStartWorkout = {
                     navController.navigate(Destination.WorkoutEdit.create())
                 },
+                onOpenDay = { date ->
+                    navController.navigate(Destination.WorkoutDay.create(date))
+                }
+            )
+        }
+        composable(
+            route = Destination.WorkoutDay.route,
+            arguments = listOf(
+                navArgument("date") {
+                    type = NavType.StringType
+                }
+            )
+        ) { entry ->
+            val date = entry.arguments?.getString("date") ?: ""
+            WorkoutDayScreen(
+                date = date,
+                onBack = { navController.popBackStack() },
                 onEditWorkout = { sessionId ->
                     navController.navigate(Destination.WorkoutEdit.create(sessionId))
                 }
