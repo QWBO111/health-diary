@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -49,8 +50,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -64,6 +68,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +81,7 @@ import com.healthdiary.app.ui.components.SectionCard
 import com.healthdiary.app.util.Dates
 import com.healthdiary.app.util.toDisplayString
 import java.io.File
+import java.time.LocalDate
 import java.util.Locale
 
 private val ANGLES = listOf("正面", "侧面", "背面")
@@ -95,6 +101,7 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
     var hipInput by remember { mutableStateOf("") }
     var photoAngle by remember { mutableStateOf<String?>(null) }
     var compareAngle by remember { mutableStateOf<String?>(null) }
+    var photoToDelete by remember { mutableStateOf<BodyPhotoEntity?>(null) }
 
     LaunchedEffect(metric) {
         weightInput = metric?.weightKg?.toDisplayString() ?: ""
@@ -190,6 +197,12 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
             }
 
             SectionCard("姿态照片") {
+                Text(
+                    "建议固定机位，保持同一角度拍摄，对比效果更佳",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
                 ANGLES.forEach { angle ->
                     val anglePhotos = photos.filter { it.angle == angle }
                     Row(
@@ -237,20 +250,44 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
                                         model = File(photo.filePath),
                                         contentDescription = "${angle}照片",
                                         modifier = Modifier
-                                            .size(80.dp)
-                                            .clip(RoundedCornerShape(12.dp)),
+                                            .size(92.dp)
+                                            .clip(RoundedCornerShape(14.dp)),
                                         contentScale = ContentScale.Crop
                                     )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.Transparent,
+                                                        Color.Black.copy(alpha = 0.55f)
+                                                    )
+                                                )
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            Dates.formatChinese(photo.date),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                     IconButton(
-                                        onClick = { viewModel.deletePhoto(photo) },
+                                        onClick = { photoToDelete = photo },
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
-                                            .size(26.dp)
+                                            .size(30.dp)
+                                            .background(Color.Black.copy(alpha = 0.35f), CircleShape)
                                     ) {
                                         Icon(
                                             Icons.Outlined.Delete,
                                             contentDescription = "删除",
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(15.dp),
+                                            tint = Color.White
                                         )
                                     }
                                 }
@@ -267,6 +304,27 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
             angle = angle,
             allPhotos = allPhotos,
             onDismiss = { compareAngle = null }
+        )
+    }
+
+    photoToDelete?.let { photo ->
+        AlertDialog(
+            onDismissRequest = { photoToDelete = null },
+            title = { Text("删除照片") },
+            text = { Text("确定删除这张${photo.angle}照片吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePhoto(photo)
+                        photoToDelete = null
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { photoToDelete = null }) { Text("取消") }
+            }
         )
     }
 }
@@ -287,7 +345,19 @@ private fun BodyStatsCard(
     }
     val delta = if (current != null && previous != null) current - previous else null
 
+    val todayStr = LocalDate.now().toString()
+    val weekAgoStr = LocalDate.now().minusDays(7).toString()
+    val weekAgoWeight = allMetrics
+        .asSequence()
+        .filter { it.weightKg != null && it.date in weekAgoStr..todayStr }
+        .minByOrNull { it.date }
+        ?.weightKg
+    val weekDelta = if (current != null && weekAgoWeight != null) current - weekAgoWeight else null
+    val firstWeight = weights.firstOrNull()
+    val cumulativeDelta = if (current != null && firstWeight != null) current - firstWeight else null
+
     Card(
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
@@ -295,67 +365,67 @@ private fun BodyStatsCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            StatsCell(
-                value = current?.toDisplayString() ?: "--",
-                unit = "kg",
-                label = "当前体重",
-                modifier = Modifier.weight(1f)
-            )
-            StatsCell(
-                value = bmi?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
-                unit = "",
-                label = "BMI",
-                modifier = Modifier.weight(1f)
-            )
-            StatsCell(
-                value = when {
-                    delta == null -> "--"
-                    delta > 0f -> "+${delta.toDisplayString()}"
-                    else -> delta.toDisplayString()
-                },
-                unit = "kg",
-                label = "较上次",
-                accent = delta?.let {
-                    when {
-                        it < -0.05f -> androidx.compose.ui.graphics.Color(0xFF2E7D32)
-                        it > 0.05f -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onPrimaryContainer
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "当前体重",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        current?.toDisplayString() ?: "--",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        " kg",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    bmi?.let { "BMI ${String.format(Locale.US, "%.1f", it)}" } ?: "身高未设置",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+                Text(
+                    "共 ${weights.size} 条记录",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                DeltaCell("较上次", delta)
+                Spacer(Modifier.height(8.dp))
+                DeltaCell("较7天前", weekDelta)
+                Spacer(Modifier.height(8.dp))
+                DeltaCell("累计变化", cumulativeDelta)
+            }
         }
     }
 }
 
 @Composable
-private fun StatsCell(
-    value: String,
-    unit: String,
-    label: String,
-    modifier: Modifier = Modifier,
-    accent: androidx.compose.ui.graphics.Color? = null
-) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = accent ?: MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            if (unit.isNotBlank()) {
-                Text(
-                    unit,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(bottom = 3.dp)
-                )
-            }
-        }
+private fun DeltaCell(label: String, delta: Float?) {
+    val valueColor = when {
+        delta == null -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+        delta < -0.05f -> Color(0xFF2E7D32)
+        delta > 0.05f -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    Column(horizontalAlignment = Alignment.End) {
+        Text(
+            if (delta == null) "--" else if (delta > 0f) "+${delta.toDisplayString()}" else delta.toDisplayString(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = valueColor
+        )
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
@@ -370,6 +440,8 @@ private fun WeightChart(points: List<Pair<String, Float>>) {
     val gridColor = MaterialTheme.colorScheme.surfaceVariant
     val lineColor = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
     val labelStyle = TextStyle(fontSize = 10.sp, color = labelColor)
 
     Box(
@@ -454,6 +526,33 @@ private fun WeightChart(points: List<Pair<String, Float>>) {
                         )
                     }
                 }
+
+                val lastWeight = points.last().second
+                val lastX = leftPad + chartW
+                val lastY = topPad + chartH * (1f - (lastWeight - min) / span)
+                val valueStyle = TextStyle(
+                    fontSize = 11.sp,
+                    color = onPrimaryContainer,
+                    fontWeight = FontWeight.Bold
+                )
+                val valueLayout = textMeasurer.measure(
+                    AnnotatedString("${lastWeight.toDisplayString()}kg"),
+                    style = valueStyle
+                )
+                val chipW = valueLayout.size.width + 14.dp.toPx()
+                val chipH = valueLayout.size.height + 8.dp.toPx()
+                val chipX = (lastX - chipW / 2f).coerceIn(leftPad, size.width - rightPad - chipW)
+                val chipY = (lastY - chipH - 8.dp.toPx()).coerceAtLeast(0f)
+                drawRoundRect(
+                    color = primaryContainer,
+                    topLeft = Offset(chipX, chipY),
+                    size = Size(chipW, chipH),
+                    cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+                )
+                drawText(
+                    textLayoutResult = valueLayout,
+                    topLeft = Offset(chipX + 7.dp.toPx(), chipY + 4.dp.toPx())
+                )
 
                 val maxText = "${max.toDisplayString()}kg"
                 drawText(

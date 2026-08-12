@@ -1,5 +1,6 @@
 package com.healthdiary.app.ui.screens.workout
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -115,50 +117,92 @@ private fun WeeklyOverviewCard(stats: List<DailyWorkoutStat>) {
     val sessionCount = stats.sumOf { it.sessionCount }
     val totalDurationMs = stats.sumOf { it.totalDurationMs }
     val totalVolumeKg = stats.sumOf { it.totalVolumeKg.toDouble() }
+    val trainedDays = stats.count { it.sessionCount > 0 }
+    val startLabel = stats.firstOrNull()?.let { shortDate(it.date) } ?: "--"
+    val endLabel = stats.lastOrNull()?.let { shortDate(it.date) } ?: "--"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "本周概览",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    "总容量 ${volumeDisplay(totalVolumeKg)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "本周概览",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        "$startLabel - $endLabel · 训练 $trainedDays 天",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                ) {
+                    Text(
+                        "总容量 ${volumeDisplay(totalVolumeKg)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth()) {
                 OverviewItem("训练", "${sessionCount} 次", Modifier.weight(1f))
                 OverviewItem("时长", Dates.formatDuration(totalDurationMs), Modifier.weight(1f))
-                OverviewItem("容量", volumeDisplay(totalVolumeKg), Modifier.weight(1f))
+                OverviewItem("训练天数", "$trainedDays 天", Modifier.weight(1f))
             }
             Spacer(Modifier.height(16.dp))
-            WeeklyVolumeChart(stats)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                WeeklyVolumeChart(stats)
+            }
         }
     }
 }
 
+private fun shortDate(date: String): String {
+    val parts = date.split("-")
+    val month = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    val day = parts.getOrNull(2)?.toIntOrNull() ?: 0
+    return "$month.$day"
+}
+
 @Composable
 private fun OverviewItem(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
         )
     }
 }
@@ -239,16 +283,29 @@ private fun DailyStatCard(
     stat: DailyWorkoutStat,
     onClick: () -> Unit
 ) {
+    val isToday = stat.date == LocalDate.now().toString()
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isToday) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = if (isToday) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
+        } else {
+            null
+        }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            DateBadge(stat.date)
+            DateBadge(date = stat.date, highlighted = isToday)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -264,7 +321,13 @@ private fun DailyStatCard(
                 )
             }
             Spacer(Modifier.width(10.dp))
-            Column(horizontalAlignment = Alignment.End) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
                 Text(
                     volumeDisplay(stat.totalVolumeKg.toDouble()),
                     style = MaterialTheme.typography.titleMedium,
@@ -288,16 +351,26 @@ private fun DailyStatCard(
 }
 
 @Composable
-private fun DateBadge(date: String) {
+private fun DateBadge(date: String, highlighted: Boolean = false) {
     val parts = date.split("-")
     val month = parts.getOrNull(1)?.toIntOrNull() ?: 0
     val day = parts.getOrNull(2)?.toIntOrNull() ?: 0
     val weekday = Dates.formatWeekday(date).removePrefix("星期")
+    val container = if (highlighted) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    val content = if (highlighted) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
 
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
+            .background(container)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -305,12 +378,12 @@ private fun DateBadge(date: String) {
             text = "$day",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            color = content
         )
         Text(
-            text = "${month}月 · 周$weekday",
+            text = if (highlighted) "今天" else "${month}月 · 周$weekday",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            color = content.copy(alpha = 0.7f)
         )
     }
 }

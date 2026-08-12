@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -105,8 +107,9 @@ fun WorkoutDayScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item(key = "summary") { DaySummaryTiles(sessions) }
-                items(sessions, key = { it.session.id }) { session ->
+                itemsIndexed(sessions, key = { _, it -> it.session.id }) { index, session ->
                     DaySessionCard(
+                        sessionIndex = index + 1,
                         session = session,
                         onEdit = { onEditWorkout(session.session.id) },
                         onDelete = { pendingDelete = session.session.id }
@@ -153,26 +156,67 @@ private fun DaySummaryTiles(sessions: List<WorkoutSessionWithDetailsAndSets>) {
         session.exercises.sumOf { exercise -> exercise.sets.sumOf { it.reps } }
     }
 
-    Column(Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            StatTile("训练次数", "$sessionCount 次", Modifier.weight(1f))
-            StatTile("总时长", Dates.formatDuration(totalDurationMs), Modifier.weight(1f))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        )
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text(
+                "全天统计 · $sessionCount 场训练",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                StatTile("训练次数", "$sessionCount 次", Modifier.weight(1f))
+                StatTile("总时长", Dates.formatDuration(totalDurationMs), Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                StatTile("动作数", "$exerciseCount 个", Modifier.weight(1f))
+                StatTile("总组数", "$setCount 组", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SummaryChip("总容量", volumeDisplay(totalVolumeKg), Modifier.weight(1f))
+                SummaryChip("总次数", "$totalReps 次", Modifier.weight(1f))
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            StatTile("动作数", "$exerciseCount 个", Modifier.weight(1f))
-            StatTile("总组数", "$setCount 组", Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun SummaryChip(label: String, value: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
-            "总容量 ${volumeDisplay(totalVolumeKg)} · 总次数 $totalReps 次",
-            style = MaterialTheme.typography.bodySmall,
+            value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -180,6 +224,7 @@ private fun DaySummaryTiles(sessions: List<WorkoutSessionWithDetailsAndSets>) {
 
 @Composable
 private fun DaySessionCard(
+    sessionIndex: Int,
     session: WorkoutSessionWithDetailsAndSets,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -190,6 +235,20 @@ private fun DaySessionCard(
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        "第${sessionIndex}场",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
                         "${Dates.formatTime(session.session.startTime)} - " +
@@ -281,7 +340,10 @@ private fun ExerciseDetailRow(index: Int, exercise: WorkoutExerciseWithSets) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 32.dp, top = 3.dp)
+                    .padding(start = 32.dp, top = 4.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
             ) {
                 Text(
                     "第${setIndex + 1}组",
@@ -306,9 +368,12 @@ private fun ExerciseDetailRow(index: Int, exercise: WorkoutExerciseWithSets) {
     }
 }
 
-private fun setDetailText(set: WorkoutSetEntity): String = when {
-    set.reps > 0 && set.weightKg > 0f -> "${set.weightKg.toDisplayString()}kg × ${set.reps}"
-    set.reps > 0 -> "${set.reps} 次"
-    set.durationSec > 0 -> "${set.durationSec} 秒"
-    else -> "—"
+private fun setDetailText(set: WorkoutSetEntity): String {
+    val base = when {
+        set.reps > 0 && set.weightKg > 0f -> "${set.weightKg.toDisplayString()}kg × ${set.reps}"
+        set.reps > 0 -> "${set.reps} 次"
+        set.durationSec > 0 -> "${set.durationSec} 秒"
+        else -> "—"
+    }
+    return if (set.rpe > 0) "$base · RPE ${set.rpe}" else base
 }
