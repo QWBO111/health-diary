@@ -156,7 +156,7 @@ fun SettingsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = {
-                            exportLauncher.launch("健康日记备份_${Dates.today()}.zip")
+                            exportLauncher.launch("博^_^备份_${Dates.today()}.zip")
                         }
                     ) {
                         Text("导出备份")
@@ -188,7 +188,7 @@ fun SettingsScreen(
             }
 
             SectionCard("关于") {
-                Text("健康日记 v0.1.0")
+                        Text("博^_^ v0.1.0")
                 Text(
                     "个人自用应用：无账号、无广告、无统计，数据完全离线。",
                     style = MaterialTheme.typography.bodySmall,
