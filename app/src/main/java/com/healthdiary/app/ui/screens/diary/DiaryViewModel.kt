@@ -48,6 +48,18 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun goToday() {
+        val today = Dates.today()
+        date = today
+        dateFlow.value = today
+        viewModelScope.launch {
+            val e = container.diaryRepository.getEntry(today)
+            mood = e?.mood ?: ""
+            moodScore = e?.moodScore ?: 0
+            text = e?.text ?: ""
+        }
+    }
+
     fun setMood(score: Int) {
         moodScore = score
         mood = when (score) {

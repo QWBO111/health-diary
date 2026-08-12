@@ -255,9 +255,13 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            DateSelector(viewModel.date) { viewModel.changeDate(it) }
+            DateSelector(
+                date = viewModel.date,
+                onOffsetChange = { viewModel.changeDate(it) },
+                onGoToday = { viewModel.goToday() }
+            )
 
-            SectionCard("今天的心情") {
+            SectionCard("当天心情") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

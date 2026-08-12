@@ -35,6 +35,10 @@ class DietViewModel(app: Application) : AndroidViewModel(app) {
         }.getOrDefault(Dates.today())
     }
 
+    fun goToday() {
+        date = Dates.today()
+    }
+
     fun addMeal(mealType: String, onCreated: (Long) -> Unit) {
         viewModelScope.launch {
             val id = container.dietRepository.addMeal(date, mealType)

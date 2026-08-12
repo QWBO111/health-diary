@@ -50,6 +50,10 @@ class BodyViewModel(app: Application) : AndroidViewModel(app) {
         }.getOrDefault(Dates.today())
     }
 
+    fun goToday() {
+        date = Dates.today()
+    }
+
     fun saveWeight(weightText: String) {
         val weight = weightText.toFloatOrNull() ?: return
         viewModelScope.launch { container.bodyRepository.saveWeight(date, weight) }

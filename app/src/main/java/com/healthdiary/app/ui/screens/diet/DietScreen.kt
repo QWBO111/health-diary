@@ -120,7 +120,11 @@ fun DietScreen(viewModel: DietViewModel = viewModel()) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            DateSelector(viewModel.date) { viewModel.changeDate(it) }
+            DateSelector(
+                date = viewModel.date,
+                onOffsetChange = { viewModel.changeDate(it) },
+                onGoToday = { viewModel.goToday() }
+            )
 
             NutritionOverview(meals)
 
@@ -218,7 +222,7 @@ private fun NutritionOverview(meals: List<MealRecordWithFood>) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "今日摄入",
+                        text = "当日摄入",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )

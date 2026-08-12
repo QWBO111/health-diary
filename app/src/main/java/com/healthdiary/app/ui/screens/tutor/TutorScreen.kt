@@ -597,7 +597,11 @@ private fun IncomeTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        DateSelector(viewModel.date) { viewModel.changeDate(it) }
+        DateSelector(
+            date = viewModel.date,
+            onOffsetChange = { viewModel.changeDate(it) },
+            onGoToday = { viewModel.goToday() }
+        )
 
         Card(
             colors = androidx.compose.material3.CardDefaults.cardColors(

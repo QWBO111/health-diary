@@ -46,6 +46,12 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
         dateFlow.value = newDate
     }
 
+    fun goToday() {
+        val today = Dates.today()
+        date = today
+        dateFlow.value = today
+    }
+
     fun addIncome(
         studentName: String,
         subject: String,

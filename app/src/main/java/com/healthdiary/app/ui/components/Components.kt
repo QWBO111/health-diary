@@ -18,11 +18,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import com.healthdiary.app.util.Dates
 
@@ -54,8 +56,10 @@ fun SectionCard(
 fun DateSelector(
     date: String,
     modifier: Modifier = Modifier,
-    onOffsetChange: (Int) -> Unit
+    onOffsetChange: (Int) -> Unit,
+    onGoToday: (() -> Unit)? = null
 ) {
+    val isToday = date == Dates.today()
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -73,6 +77,18 @@ fun DateSelector(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (!isToday && onGoToday != null) {
+                TextButton(
+                    onClick = onGoToday,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        "回到今天",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
         IconButton(onClick = { onOffsetChange(1) }) {
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "后一天")
