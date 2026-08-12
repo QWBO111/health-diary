@@ -34,6 +34,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -150,6 +151,9 @@ fun DietScreen(viewModel: DietViewModel = viewModel()) {
             onConfirm = { name, grams, kcal, protein, carbs, fat ->
                 viewModel.addFood(mealId, name, grams, kcal, protein, carbs, fat)
                 addingFoodForMeal = null
+            },
+            onSaveToLibrary = { name, kcal, protein, carbs, fat ->
+                viewModel.saveFoodToLibrary(name, kcal, protein, carbs, fat)
             },
             onDismiss = { addingFoodForMeal = null }
         )
@@ -522,6 +526,7 @@ private fun FoodRow(
 private fun AddFoodDialog(
     onSearch: (String, (List<FoodEntity>) -> Unit) -> Unit,
     onConfirm: (String, Float, Float, Float, Float, Float) -> Unit,
+    onSaveToLibrary: (String, Float, Float, Float, Float) -> Unit,
     onDismiss: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
@@ -533,6 +538,7 @@ private fun AddFoodDialog(
     var protein by remember { mutableStateOf("") }
     var carbs by remember { mutableStateOf("") }
     var fat by remember { mutableStateOf("") }
+    var saveToLibrary by remember { mutableStateOf(false) }
 
     LaunchedEffect(query) {
         if (query.isBlank()) {
@@ -703,6 +709,22 @@ private fun AddFoodDialog(
                     )
                 }
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = saveToLibrary,
+                        onCheckedChange = { saveToLibrary = it }
+                    )
+                    Text(
+                        text = "同时保存到食物库",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
                 if (totalKcal > 0) {
                     Text(
                         text = "预计摄入约 $totalKcal 千卡",
@@ -724,6 +746,15 @@ private fun AddFoodDialog(
                         carbs.toFloatOrNull() ?: 0f,
                         fat.toFloatOrNull() ?: 0f
                     )
+                    if (saveToLibrary) {
+                        onSaveToLibrary(
+                            name.trim().ifBlank { "未命名食物" },
+                            kcalValue,
+                            protein.toFloatOrNull() ?: 0f,
+                            carbs.toFloatOrNull() ?: 0f,
+                            fat.toFloatOrNull() ?: 0f
+                        )
+                    }
                 },
                 enabled = name.isNotBlank() && gramsValue > 0f
             ) {

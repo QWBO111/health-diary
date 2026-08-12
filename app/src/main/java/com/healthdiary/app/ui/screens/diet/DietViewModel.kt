@@ -75,4 +75,24 @@ class DietViewModel(app: Application) : AndroidViewModel(app) {
             onResult(container.dietRepository.searchFoods(query.trim()))
         }
     }
+
+    fun saveFoodToLibrary(
+        name: String,
+        kcalPer100g: Float,
+        proteinPer100g: Float,
+        carbsPer100g: Float,
+        fatPer100g: Float
+    ) {
+        viewModelScope.launch {
+            container.dietRepository.addFoodToLibrary(
+                FoodEntity(
+                    name = name,
+                    caloriesPer100g = kcalPer100g,
+                    proteinPer100g = proteinPer100g,
+                    carbsPer100g = carbsPer100g,
+                    fatPer100g = fatPer100g
+                )
+            )
+        }
+    }
 }
