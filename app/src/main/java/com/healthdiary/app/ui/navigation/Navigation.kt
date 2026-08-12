@@ -5,6 +5,7 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import com.healthdiary.app.ui.screens.diary.DiaryScreen
 import com.healthdiary.app.ui.screens.diet.DietScreen
 import com.healthdiary.app.ui.screens.settings.SettingsScreen
 import com.healthdiary.app.ui.screens.today.TodayScreen
+import com.healthdiary.app.ui.screens.tutor.TutorScreen
 import com.healthdiary.app.ui.screens.workout.WorkoutDayScreen
 import com.healthdiary.app.ui.screens.workout.WorkoutEditScreen
 import com.healthdiary.app.ui.screens.workout.WorkoutScreen
@@ -33,6 +35,7 @@ sealed class Destination(
     data object Workout : Destination("workout", "训练", Icons.Outlined.FitnessCenter)
     data object Diet : Destination("diet", "饮食", Icons.Outlined.Restaurant)
     data object Diary : Destination("diary", "日记", Icons.AutoMirrored.Outlined.MenuBook)
+    data object Tutor : Destination("tutor", "家教", Icons.Outlined.School)
     data object Body : Destination("body", "身体", Icons.Outlined.MonitorWeight)
     data object Settings : Destination("settings", "设置", Icons.Outlined.Settings)
 
@@ -47,7 +50,7 @@ sealed class Destination(
     }
 
     companion object {
-        val bottomDestinations = listOf(Today, Workout, Diet, Diary, Body)
+        val bottomDestinations = listOf(Today, Workout, Diet, Diary, Tutor, Body)
         val bottomBarRoutes = bottomDestinations.map { it.route }
     }
 }
@@ -99,6 +102,9 @@ fun HealthDiaryNavHost(
         }
         composable(Destination.Diary.route) {
             DiaryScreen()
+        }
+        composable(Destination.Tutor.route) {
+            TutorScreen()
         }
         composable(Destination.Body.route) {
             BodyScreen()

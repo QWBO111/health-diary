@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Card
@@ -36,15 +37,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.healthdiary.app.data.local.DailyWorkoutStat
 import com.healthdiary.app.util.Dates
 import com.healthdiary.app.util.volumeDisplay
 import java.time.LocalDate
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,11 +121,19 @@ private fun WeeklyOverviewCard(stats: List<DailyWorkoutStat>) {
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(
-                "本周概览",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "本周概览",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    "总容量 ${volumeDisplay(totalVolumeKg)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth()) {
                 OverviewItem("训练", "${sessionCount} 次", Modifier.weight(1f))
@@ -155,17 +170,20 @@ private fun WeeklyVolumeChart(stats: List<DailyWorkoutStat>) {
     val primary = MaterialTheme.colorScheme.primary
     val primaryContainer = MaterialTheme.colorScheme.primaryContainer
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(fontSize = 9.sp, color = primary)
 
     Column(Modifier.fillMaxWidth()) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(90.dp)
+                .height(110.dp)
         ) {
+            val topPad = 18.dp.toPx()
             val spacing = 8.dp.toPx()
             val barArea = size.width - spacing * (stats.size - 1)
             val barWidth = barArea / stats.size
-            val chartHeight = size.height - 8.dp.toPx()
+            val chartHeight = size.height - topPad - 4.dp.toPx()
             stats.forEachIndexed { index, stat ->
                 val left = index * (barWidth + spacing)
                 val ratio = (stat.totalVolumeKg / maxVolume).toDouble().coerceIn(0.0, 1.0)
@@ -175,12 +193,28 @@ private fun WeeklyVolumeChart(stats: List<DailyWorkoutStat>) {
                     4.dp.toPx()
                 }
                 val isToday = stat.date == today
+                val top = size.height - barHeight
                 drawRoundRect(
                     color = if (isToday) primary else primaryContainer,
-                    topLeft = Offset(left, size.height - barHeight),
+                    topLeft = Offset(left, top),
                     size = Size(barWidth, barHeight),
                     cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
                 )
+                if (stat.totalVolumeKg > 0f) {
+                    val label = if (stat.totalVolumeKg >= 1000f) {
+                        String.format(Locale.US, "%.1ft", stat.totalVolumeKg / 1000f)
+                    } else {
+                        "${stat.totalVolumeKg.toInt()}kg"
+                    }
+                    val layout = textMeasurer.measure(AnnotatedString(label), style = labelStyle)
+                    drawText(
+                        textLayoutResult = layout,
+                        topLeft = Offset(
+                            left + (barWidth - layout.size.width) / 2f,
+                            (top - 15.dp.toPx()).coerceAtLeast(0f)
+                        )
+                    )
+                }
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -243,6 +277,12 @@ private fun DailyStatCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
         }
     }
 }

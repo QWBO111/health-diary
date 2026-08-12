@@ -12,6 +12,8 @@ import com.healthdiary.app.data.local.ExerciseEntity
 import com.healthdiary.app.data.local.FoodEntity
 import com.healthdiary.app.data.local.FoodEntryEntity
 import com.healthdiary.app.data.local.MealRecordEntity
+import com.healthdiary.app.data.local.TutorIncomeEntity
+import com.healthdiary.app.data.local.TutorScheduleEntity
 import com.healthdiary.app.data.local.WorkoutExerciseEntity
 import com.healthdiary.app.data.local.WorkoutSessionEntity
 import com.healthdiary.app.data.local.WorkoutSetEntity
@@ -87,6 +89,7 @@ class BackupRepository(
             restoreDiet(data, mediaMap)
             restoreBody(data, mediaMap)
             restoreDiary(data, mediaMap)
+            restoreTutor(data)
         }
 
         tempDir.deleteRecursively()
@@ -94,7 +97,8 @@ class BackupRepository(
             recordCount = data.getJSONArray("workoutSessions").length() +
                 data.getJSONArray("mealRecords").length() +
                 data.getJSONArray("bodyMetrics").length() +
-                data.getJSONArray("diaryEntries").length(),
+                data.getJSONArray("diaryEntries").length() +
+                data.getJSONArray("tutorIncome").length(),
             mediaCount = mediaMap.size
         )
     }
@@ -140,6 +144,12 @@ class BackupRepository(
         root.put("diaryMedia", JSONArray().apply {
             db.diaryDao().getAllMedia().forEach { put(it.toJson()) }
         })
+        root.put("tutorIncome", JSONArray().apply {
+            db.tutorDao().getAllIncome().forEach { put(it.toJson()) }
+        })
+        root.put("tutorSchedule", JSONArray().apply {
+            db.tutorDao().getAllSchedule().forEach { put(it.toJson()) }
+        })
         return root
     }
 
@@ -184,6 +194,8 @@ class BackupRepository(
         db.workoutDao().clearWorkoutSessions()
         db.exerciseLibraryDao().clearExercises()
         db.foodLibraryDao().clearFoods()
+        db.tutorDao().clearIncome()
+        db.tutorDao().clearSchedule()
     }
 
     private suspend fun restoreWorkout(data: JSONObject) {
@@ -335,6 +347,37 @@ class BackupRepository(
         }
     }
 
+    private suspend fun restoreTutor(data: JSONObject) {
+        forEachJson(data, "tutorIncome") {
+            db.tutorDao().insertIncome(
+                TutorIncomeEntity(
+                    id = it.getLong("id"),
+                    date = it.getString("date"),
+                    studentName = it.optString("studentName"),
+                    subject = it.optString("subject"),
+                    startMinute = it.optInt("startMinute"),
+                    durationMin = it.optInt("durationMin"),
+                    income = it.optDouble("income").toFloat(),
+                    note = it.optString("note"),
+                    createdAt = it.optLong("createdAt")
+                )
+            )
+        }
+        forEachJson(data, "tutorSchedule") {
+            db.tutorDao().insertSchedule(
+                TutorScheduleEntity(
+                    id = it.getLong("id"),
+                    weekday = it.getInt("weekday"),
+                    startMinute = it.getInt("startMinute"),
+                    endMinute = it.getInt("endMinute"),
+                    studentName = it.optString("studentName"),
+                    subject = it.optString("subject"),
+                    note = it.optString("note")
+                )
+            )
+        }
+    }
+
     private inline fun forEachJson(data: JSONObject, key: String, block: (JSONObject) -> Unit) {
         val arr = data.optJSONArray(key) ?: return
         for (i in 0 until arr.length()) {
@@ -399,4 +442,16 @@ private fun DiaryEntryEntity.toJson() = JSONObject().apply {
 private fun DiaryMediaEntity.toJson() = JSONObject().apply {
     put("id", id); put("entryId", entryId); put("type", type); put("filePath", filePath)
     put("durationSec", durationSec); put("createdAt", createdAt)
+}
+
+private fun TutorIncomeEntity.toJson() = JSONObject().apply {
+    put("id", id); put("date", date); put("studentName", studentName); put("subject", subject)
+    put("startMinute", startMinute); put("durationMin", durationMin); put("income", income)
+    put("note", note); put("createdAt", createdAt)
+}
+
+private fun TutorScheduleEntity.toJson() = JSONObject().apply {
+    put("id", id); put("weekday", weekday); put("startMinute", startMinute)
+    put("endMinute", endMinute); put("studentName", studentName); put("subject", subject)
+    put("note", note)
 }

@@ -16,6 +16,7 @@ class SettingsRepository(private val context: Context) {
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val REMINDER_HOUR = intPreferencesKey("reminder_hour")
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
+        val HEIGHT_CM = intPreferencesKey("height_cm")
     }
 
     val reminderEnabled: Flow<Boolean> =
@@ -26,6 +27,9 @@ class SettingsRepository(private val context: Context) {
             (it[Keys.REMINDER_HOUR] ?: 21) to (it[Keys.REMINDER_MINUTE] ?: 0)
         }
 
+    val heightCm: Flow<Int> =
+        context.settingsDataStore.data.map { it[Keys.HEIGHT_CM] ?: 175 }
+
     suspend fun setReminderEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.REMINDER_ENABLED] = enabled }
     }
@@ -35,5 +39,9 @@ class SettingsRepository(private val context: Context) {
             it[Keys.REMINDER_HOUR] = hour
             it[Keys.REMINDER_MINUTE] = minute
         }
+    }
+
+    suspend fun setHeightCm(cm: Int) {
+        context.settingsDataStore.edit { it[Keys.HEIGHT_CM] = cm }
     }
 }

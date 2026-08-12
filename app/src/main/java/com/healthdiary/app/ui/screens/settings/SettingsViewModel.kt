@@ -24,6 +24,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         container.settingsRepository.reminderTime
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 21 to 0)
 
+    val heightCm: StateFlow<Int> =
+        container.settingsRepository.heightCm
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 175)
+
     fun setReminderEnabled(enabled: Boolean) {
         viewModelScope.launch {
             container.settingsRepository.setReminderEnabled(enabled)
@@ -36,6 +40,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             container.settingsRepository.setReminderTime(hour, minute)
             applyReminderSchedule()
         }
+    }
+
+    fun setHeightCm(cm: Int) {
+        viewModelScope.launch { container.settingsRepository.setHeightCm(cm) }
     }
 
     private suspend fun applyReminderSchedule() {

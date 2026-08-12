@@ -161,3 +161,24 @@ interface DiaryDao {
     @Query("DELETE FROM diary_media") suspend fun clearDiaryMedia()
     @Query("DELETE FROM diary_entries") suspend fun clearDiaryEntries()
 }
+
+@Dao
+interface TutorDao {
+    @Insert suspend fun insertIncome(record: TutorIncomeEntity): Long
+    @Update suspend fun updateIncome(record: TutorIncomeEntity)
+    @Query("DELETE FROM tutor_income_records WHERE id = :id") suspend fun deleteIncome(id: Long)
+    @Query("SELECT * FROM tutor_income_records WHERE date = :date ORDER BY startMinute ASC")
+    fun observeIncomeByDate(date: String): Flow<List<TutorIncomeEntity>>
+    @Query("SELECT * FROM tutor_income_records ORDER BY date DESC, startMinute ASC")
+    fun observeAllIncome(): Flow<List<TutorIncomeEntity>>
+    @Query("SELECT * FROM tutor_income_records") suspend fun getAllIncome(): List<TutorIncomeEntity>
+
+    @Insert suspend fun insertSchedule(item: TutorScheduleEntity): Long
+    @Update suspend fun updateSchedule(item: TutorScheduleEntity)
+    @Query("DELETE FROM tutor_schedule_items WHERE id = :id") suspend fun deleteSchedule(id: Long)
+    @Query("SELECT * FROM tutor_schedule_items ORDER BY weekday, startMinute")
+    fun observeAllSchedule(): Flow<List<TutorScheduleEntity>>
+    @Query("SELECT * FROM tutor_schedule_items") suspend fun getAllSchedule(): List<TutorScheduleEntity>
+    @Query("DELETE FROM tutor_income_records") suspend fun clearIncome()
+    @Query("DELETE FROM tutor_schedule_items") suspend fun clearSchedule()
+}

@@ -8,6 +8,7 @@ import com.healthdiary.app.data.repository.BackupRepository
 import com.healthdiary.app.data.repository.BodyRepository
 import com.healthdiary.app.data.repository.DiaryRepository
 import com.healthdiary.app.data.repository.DietRepository
+import com.healthdiary.app.data.repository.TutorRepository
 import com.healthdiary.app.data.repository.WorkoutRepository
 import com.healthdiary.app.data.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -25,11 +26,13 @@ class AppContainer(context: Context) {
     val dietRepository = DietRepository(database, mediaStore)
     val bodyRepository = BodyRepository(database, mediaStore)
     val diaryRepository = DiaryRepository(database, mediaStore)
+    val tutorRepository = TutorRepository(database)
     val backupRepository = BackupRepository(database, mediaStore)
 
     init {
         CoroutineScope(Dispatchers.IO).launch {
             com.healthdiary.app.data.local.SeedData.seedIfEmpty(database)
+            com.healthdiary.app.data.local.SeedData.ensureFoodLibraryComplete(database)
             if (settingsRepository.reminderEnabled.first()) {
                 val (hour, minute) = settingsRepository.reminderTime.first()
                 ReminderScheduler.schedule(context, hour, minute)

@@ -170,3 +170,29 @@ data class DiaryEntryWithMedia(
     @Relation(parentColumn = "id", entityColumn = "entryId")
     val media: List<DiaryMediaEntity>
 )
+
+// ---------- 家教 ----------
+
+@Entity(tableName = "tutor_income_records")
+data class TutorIncomeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val date: String,               // yyyy-MM-dd
+    val studentName: String = "",
+    val subject: String = "",
+    val startMinute: Int = 0,       // 0-1439，上课开始时间
+    val durationMin: Int = 60,
+    val income: Float = 0f,         // 元
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "tutor_schedule_items")
+data class TutorScheduleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val weekday: Int,               // 1=周一 ... 7=周日
+    val startMinute: Int = 0,       // 0-1439
+    val endMinute: Int = 60,
+    val studentName: String = "",
+    val subject: String = "",
+    val note: String = ""
+)

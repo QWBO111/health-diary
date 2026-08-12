@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +21,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -59,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,6 +76,7 @@ import com.healthdiary.app.ui.components.SectionCard
 import com.healthdiary.app.util.Dates
 import com.healthdiary.app.util.toDisplayString
 import java.io.File
+import java.util.Locale
 
 private val ANGLES = listOf("正面", "侧面", "背面")
 
@@ -81,6 +87,7 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val allMetrics by viewModel.allMetrics.collectAsStateWithLifecycle()
     val allPhotos by viewModel.allPhotos.collectAsStateWithLifecycle()
+    val heightCm by viewModel.heightCm.collectAsStateWithLifecycle()
 
     var weightInput by remember { mutableStateOf("") }
     var chestInput by remember { mutableStateOf("") }
@@ -118,6 +125,12 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             DateSelector(viewModel.date) { viewModel.changeDate(it) }
+
+            BodyStatsCard(
+                allMetrics = allMetrics,
+                todayWeight = metric?.weightKg,
+                heightCm = heightCm
+            )
 
             SectionCard("体重与围度") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -186,11 +199,18 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
                         Text(
                             angle,
                             style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f)
                         )
                         if (allPhotos.count { it.angle == angle } >= 2) {
-                            IconButton(onClick = { compareAngle = angle }) {
-                                Icon(Icons.Outlined.CompareArrows, contentDescription = "前后对比")
+                            TextButton(onClick = { compareAngle = angle }) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.CompareArrows,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("对比")
                             }
                         }
                         IconButton(onClick = {
@@ -205,11 +225,11 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
                         }
                     }
                     if (anglePhotos.isEmpty()) {
-                        EmptyHint("还没有${angle}照片")
+                        EmptyHint("还没有${angle}照片", Modifier.padding(bottom = 8.dp))
                     } else {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(bottom = 10.dp)
                         ) {
                             anglePhotos.forEach { photo ->
                                 Box {
@@ -217,8 +237,8 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
                                         model = File(photo.filePath),
                                         contentDescription = "${angle}照片",
                                         modifier = Modifier
-                                            .size(76.dp)
-                                            .clip(RoundedCornerShape(10.dp)),
+                                            .size(80.dp)
+                                            .clip(RoundedCornerShape(12.dp)),
                                         contentScale = ContentScale.Crop
                                     )
                                     IconButton(
@@ -252,6 +272,99 @@ fun BodyScreen(viewModel: BodyViewModel = viewModel()) {
 }
 
 @Composable
+private fun BodyStatsCard(
+    allMetrics: List<com.healthdiary.app.data.local.BodyMetricEntity>,
+    todayWeight: Float?,
+    heightCm: Int
+) {
+    val weights = allMetrics.mapNotNull { it.weightKg }
+    val current = todayWeight ?: weights.lastOrNull()
+    val previous = weights.dropLast(1).lastOrNull()
+    val bmi = if (current != null && heightCm > 0) {
+        current / ((heightCm / 100f) * (heightCm / 100f))
+    } else {
+        null
+    }
+    val delta = if (current != null && previous != null) current - previous else null
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            StatsCell(
+                value = current?.toDisplayString() ?: "--",
+                unit = "kg",
+                label = "当前体重",
+                modifier = Modifier.weight(1f)
+            )
+            StatsCell(
+                value = bmi?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
+                unit = "",
+                label = "BMI",
+                modifier = Modifier.weight(1f)
+            )
+            StatsCell(
+                value = when {
+                    delta == null -> "--"
+                    delta > 0f -> "+${delta.toDisplayString()}"
+                    else -> delta.toDisplayString()
+                },
+                unit = "kg",
+                label = "较上次",
+                accent = delta?.let {
+                    when {
+                        it < -0.05f -> androidx.compose.ui.graphics.Color(0xFF2E7D32)
+                        it > 0.05f -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onPrimaryContainer
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatsCell(
+    value: String,
+    unit: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    accent: androidx.compose.ui.graphics.Color? = null
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = accent ?: MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            if (unit.isNotBlank()) {
+                Text(
+                    unit,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(bottom = 3.dp)
+                )
+            }
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+        )
+    }
+}
+
+@Composable
 private fun WeightChart(points: List<Pair<String, Float>>) {
     val textMeasurer = rememberTextMeasurer()
     val gridColor = MaterialTheme.colorScheme.surfaceVariant
@@ -262,7 +375,7 @@ private fun WeightChart(points: List<Pair<String, Float>>) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(170.dp)
+            .height(190.dp)
     ) {
         if (points.size < 2) {
             EmptyHint("至少记录两天体重后显示趋势", Modifier.align(Alignment.Center))
@@ -273,8 +386,8 @@ private fun WeightChart(points: List<Pair<String, Float>>) {
                 val span = (max - min).coerceAtLeast(1f)
                 val leftPad = 36.dp.toPx()
                 val rightPad = 12.dp.toPx()
-                val topPad = 16.dp.toPx()
-                val bottomPad = 24.dp.toPx()
+                val topPad = 22.dp.toPx()
+                val bottomPad = 26.dp.toPx()
                 val chartW = size.width - leftPad - rightPad
                 val chartH = size.height - topPad - bottomPad
                 val step = chartW / (points.size - 1)
@@ -289,55 +402,95 @@ private fun WeightChart(points: List<Pair<String, Float>>) {
                     )
                 }
 
-                val path = Path()
+                val line = Path()
                 points.forEachIndexed { index, (_, weight) ->
                     val x = leftPad + step * index
                     val y = topPad + chartH * (1f - (weight - min) / span)
-                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    if (index == 0) line.moveTo(x, y) else line.lineTo(x, y)
+                }
+
+                val area = Path().apply {
+                    val firstX = leftPad
+                    val lastX = leftPad + step * (points.size - 1)
+                    moveTo(firstX, topPad + chartH)
+                    lineTo(firstX, topPad + chartH * (1f - (points.first().second - min) / span))
+                    points.forEachIndexed { index, (_, weight) ->
+                        val x = leftPad + step * index
+                        val y = topPad + chartH * (1f - (weight - min) / span)
+                        lineTo(x, y)
+                    }
+                    lineTo(lastX, topPad + chartH)
+                    close()
                 }
                 drawPath(
-                    path = path,
+                    path = area,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            lineColor.copy(alpha = 0.28f),
+                            lineColor.copy(alpha = 0.02f)
+                        ),
+                        startY = topPad,
+                        endY = topPad + chartH
+                    )
+                )
+
+                drawPath(
+                    path = line,
                     color = lineColor,
                     style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                 )
+
                 points.forEachIndexed { index, (_, weight) ->
                     val x = leftPad + step * index
                     val y = topPad + chartH * (1f - (weight - min) / span)
-                    drawCircle(lineColor, radius = 4.dp.toPx(), center = Offset(x, y))
+                    val isLast = index == points.lastIndex
+                    drawCircle(lineColor, radius = if (isLast) 5.dp.toPx() else 3.5.dp.toPx(), center = Offset(x, y))
+                    if (isLast) {
+                        drawCircle(
+                            color = lineColor.copy(alpha = 0.25f),
+                            radius = 9.dp.toPx(),
+                            center = Offset(x, y),
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                    }
                 }
 
-                val maxText = "最高 ${max.toDisplayString()}kg"
+                val maxText = "${max.toDisplayString()}kg"
                 drawText(
                     textMeasurer = textMeasurer,
                     text = AnnotatedString(maxText),
-                    topLeft = Offset(leftPad, 0f),
+                    topLeft = Offset(0f, topPad - 12.dp.toPx()),
                     style = labelStyle
                 )
-                val firstDate = points.first().first
-                val firstDateWidth = textMeasurer.measure(
-                    AnnotatedString(firstDate),
-                    style = labelStyle
-                ).size.width
+                val minText = "${min.toDisplayString()}kg"
                 drawText(
                     textMeasurer = textMeasurer,
-                    text = AnnotatedString(firstDate),
-                    topLeft = Offset(leftPad, size.height - 20.dp.toPx()),
+                    text = AnnotatedString(minText),
+                    topLeft = Offset(0f, topPad + chartH - 8.dp.toPx()),
                     style = labelStyle
                 )
-                val lastDate = points.last().first
-                val lastDateWidth = textMeasurer.measure(
-                    AnnotatedString(lastDate),
-                    style = labelStyle
-                ).size.width
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = AnnotatedString(lastDate),
-                    topLeft = Offset(
-                        size.width - rightPad - lastDateWidth,
-                        size.height - 20.dp.toPx()
-                    ),
-                    style = labelStyle
-                )
+
+                fun drawDate(date: String, x: Float) {
+                    val short = runCatching {
+                        val p = date.split("-")
+                        "${p[1].toInt()}月${p[2].toInt()}日"
+                    }.getOrDefault(date)
+                    val width = textMeasurer.measure(AnnotatedString(short), style = labelStyle).size.width
+                    drawText(
+                        textMeasurer = textMeasurer,
+                        text = AnnotatedString(short),
+                        topLeft = Offset((x - width / 2f).coerceIn(leftPad, size.width - rightPad - width), size.height - 20.dp.toPx()),
+                        style = labelStyle
+                    )
+                }
+                if (points.size <= 7) {
+                    points.forEachIndexed { index, (date, _) ->
+                        drawDate(date, leftPad + step * index)
+                    }
+                } else {
+                    drawDate(points.first().first, leftPad)
+                    drawDate(points.last().first, leftPad + chartW)
+                }
             }
         }
     }
@@ -398,9 +551,12 @@ private fun CompareDialog(
                             "← 早期    近期 →",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(4.dp)
+                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .clip(RoundedCornerShape(20.dp))
                         )
                     }
                     Slider(

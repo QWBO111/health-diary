@@ -40,6 +40,10 @@ class BodyViewModel(app: Application) : AndroidViewModel(app) {
         container.bodyRepository.allPhotos
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val heightCm: StateFlow<Int> =
+        container.settingsRepository.heightCm
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 175)
+
     fun changeDate(offset: Int) {
         date = runCatching {
             LocalDate.parse(date).plusDays(offset.toLong()).toString()

@@ -42,6 +42,7 @@ fun TodayScreen(
     val weightToday by viewModel.weightToday.collectAsStateWithLifecycle()
     val diary by viewModel.diaryToday.collectAsStateWithLifecycle()
     val latestWeight by viewModel.latestWeight.collectAsStateWithLifecycle()
+    val tutorIncome by viewModel.tutorIncomeToday.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -129,6 +130,21 @@ fun TodayScreen(
                     Spacer(Modifier.height(10.dp))
                     Button(onClick = { onNavigate(Destination.Diary.route) }) {
                         Text(if (diary == null) "去写日记" else "查看日记")
+                    }
+                }
+            }
+            item {
+                SectionCard("家教") {
+                    if (tutorIncome.isEmpty()) {
+                        EmptyHint("今天还没有家教收入记录")
+                    } else {
+                        val income = tutorIncome.sumOf { it.income.toDouble() }
+                        val minutes = tutorIncome.sumOf { it.durationMin }
+                        Text("今天 ${tutorIncome.size} 节课 · 收入 ¥${income.toInt()} · ${minutes} 分钟")
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Button(onClick = { onNavigate(Destination.Tutor.route) }) {
+                        Text(if (tutorIncome.isEmpty()) "去记录" else "查看详情")
                     }
                 }
             }

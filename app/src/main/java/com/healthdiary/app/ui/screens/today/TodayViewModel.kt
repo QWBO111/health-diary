@@ -7,6 +7,7 @@ import com.healthdiary.app.HealthDiaryApp
 import com.healthdiary.app.data.local.BodyMetricEntity
 import com.healthdiary.app.data.local.DiaryEntryEntity
 import com.healthdiary.app.data.local.MealRecordWithFood
+import com.healthdiary.app.data.local.TutorIncomeEntity
 import com.healthdiary.app.data.local.WorkoutSessionEntity
 import com.healthdiary.app.util.Dates
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,4 +40,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         container.bodyRepository.allMetrics
             .map { it.lastOrNull { m -> m.weightKg != null } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val tutorIncomeToday: StateFlow<List<TutorIncomeEntity>> =
+        container.tutorRepository.incomeByDate(today)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }
