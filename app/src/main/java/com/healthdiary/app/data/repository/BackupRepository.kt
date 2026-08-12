@@ -387,7 +387,8 @@ class BackupRepository(
                     endMinute = it.getInt("endMinute"),
                     studentName = it.optString("studentName"),
                     subject = it.optString("subject"),
-                    note = it.optString("note")
+                    note = it.optString("note"),
+                    fee = it.optDouble("fee").toFloat()
                 )
             )
         }
@@ -468,5 +469,5 @@ private fun TutorIncomeEntity.toJson() = JSONObject().apply {
 private fun TutorScheduleEntity.toJson() = JSONObject().apply {
     put("id", id); put("weekday", weekday); put("startMinute", startMinute)
     put("endMinute", endMinute); put("studentName", studentName); put("subject", subject)
-    put("note", note)
+    put("note", note); put("fee", fee)
 }

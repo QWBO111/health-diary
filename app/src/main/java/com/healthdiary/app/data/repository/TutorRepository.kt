@@ -66,7 +66,8 @@ class TutorRepository(private val db: AppDatabase) {
         endMinute: Int,
         studentName: String,
         subject: String,
-        note: String
+        note: String,
+        fee: Float
     ): Long = db.tutorDao().insertSchedule(
         TutorScheduleEntity(
             weekday = weekday,
@@ -74,7 +75,8 @@ class TutorRepository(private val db: AppDatabase) {
             endMinute = endMinute,
             studentName = studentName,
             subject = subject,
-            note = note
+            note = note,
+            fee = fee
         )
     )
 
@@ -85,7 +87,8 @@ class TutorRepository(private val db: AppDatabase) {
         endMinute: Int,
         studentName: String,
         subject: String,
-        note: String
+        note: String,
+        fee: Float
     ) {
         db.tutorDao().getAllSchedule().firstOrNull { it.id == id }?.let { item ->
             db.tutorDao().updateSchedule(
@@ -95,7 +98,8 @@ class TutorRepository(private val db: AppDatabase) {
                     endMinute = endMinute,
                     studentName = studentName,
                     subject = subject,
-                    note = note
+                    note = note,
+                    fee = fee
                 )
             )
         }

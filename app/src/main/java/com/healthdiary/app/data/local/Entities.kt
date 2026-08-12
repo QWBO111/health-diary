@@ -194,5 +194,6 @@ data class TutorScheduleEntity(
     val endMinute: Int = 60,
     val studentName: String = "",
     val subject: String = "",
-    val note: String = ""
+    val note: String = "",
+    val fee: Float = 0f              // 每节课费（元）
 )

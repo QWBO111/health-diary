@@ -99,7 +99,8 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
         endMinute: Int,
         studentName: String,
         subject: String,
-        note: String
+        note: String,
+        fee: Float
     ) {
         viewModelScope.launch {
             container.tutorRepository.addSchedule(
@@ -108,7 +109,8 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
                 endMinute = endMinute,
                 studentName = studentName,
                 subject = subject,
-                note = note
+                note = note,
+                fee = fee
             )
         }
     }
@@ -120,7 +122,8 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
         endMinute: Int,
         studentName: String,
         subject: String,
-        note: String
+        note: String,
+        fee: Float
     ) {
         viewModelScope.launch {
             container.tutorRepository.updateSchedule(
@@ -130,7 +133,8 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
                 endMinute = endMinute,
                 studentName = studentName,
                 subject = subject,
-                note = note
+                note = note,
+                fee = fee
             )
         }
     }

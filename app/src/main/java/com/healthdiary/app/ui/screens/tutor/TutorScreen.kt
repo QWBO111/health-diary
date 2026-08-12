@@ -2,9 +2,11 @@ package com.healthdiary.app.ui.screens.tutor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -103,7 +106,6 @@ fun TutorScreen(viewModel: TutorViewModel = viewModel()) {
     var editingIncome by remember { mutableStateOf<TutorIncomeEntity?>(null) }
     var showScheduleDialog by remember { mutableStateOf(false) }
     var editingSchedule by remember { mutableStateOf<TutorScheduleEntity?>(null) }
-    var selectedWeekday by remember { mutableIntStateOf(LocalDate.now().dayOfWeek.value) }
     var deleteIncomeId by remember { mutableStateOf<Long?>(null) }
     var deleteScheduleId by remember { mutableStateOf<Long?>(null) }
 
@@ -147,12 +149,6 @@ fun TutorScreen(viewModel: TutorViewModel = viewModel()) {
             0 -> ScheduleTab(
                 modifier = Modifier.padding(padding).fillMaxSize(),
                 schedule = schedule,
-                selectedWeekday = selectedWeekday,
-                onSelectWeekday = { selectedWeekday = it },
-                onAdd = {
-                    editingSchedule = null
-                    showScheduleDialog = true
-                },
                 onEdit = { item ->
                     editingSchedule = item
                     showScheduleDialog = true
@@ -196,19 +192,25 @@ fun TutorScreen(viewModel: TutorViewModel = viewModel()) {
     if (showScheduleDialog) {
         ScheduleDialog(
             item = editingSchedule,
-            defaultWeekday = selectedWeekday,
-            onConfirm = { weekday, startMin, endMin, student, subject, note, onResult ->
+            defaultWeekday = LocalDate.now().dayOfWeek.value,
+            onConfirm = { weekday, startMin, endMin, student, subject, note, fee, onResult ->
                 val item = editingSchedule
                 viewModel.checkConflict(weekday, startMin, endMin, item?.id ?: -1L) { conflict ->
                     if (!conflict) {
                         if (item == null) {
-                            viewModel.addSchedule(weekday, startMin, endMin, student, subject, note)
+                            viewModel.addSchedule(weekday, startMin, endMin, student, subject, note, fee)
                         } else {
-                            viewModel.updateSchedule(item.id, weekday, startMin, endMin, student, subject, note)
+                            viewModel.updateSchedule(item.id, weekday, startMin, endMin, student, subject, note, fee)
                         }
                         showScheduleDialog = false
                     }
                     onResult(!conflict)
+                }
+            },
+            onDelete = editingSchedule?.let { item ->
+                {
+                    deleteScheduleId = item.id
+                    showScheduleDialog = false
                 }
             },
             onDismiss = { showScheduleDialog = false }
@@ -260,25 +262,24 @@ fun TutorScreen(viewModel: TutorViewModel = viewModel()) {
 
 // ---------------- 课表 ----------------
 
+private val GRID_MIN_HOUR = 6
+private val GRID_MAX_HOUR = 23
+private val HOUR_HEIGHT = 56.dp
+private val DAY_COLUMN_WIDTH = 108.dp
+
 @Composable
 private fun ScheduleTab(
     modifier: Modifier,
     schedule: List<TutorScheduleEntity>,
-    selectedWeekday: Int,
-    onSelectWeekday: (Int) -> Unit,
-    onAdd: () -> Unit,
     onEdit: (TutorScheduleEntity) -> Unit,
     onDelete: (TutorScheduleEntity) -> Unit
 ) {
-    val dayItems = schedule
-        .filter { it.weekday == selectedWeekday }
-        .sortedBy { it.startMinute }
+    val todayWeekday = LocalDate.now().dayOfWeek.value
     val totalMinutes = schedule.sumOf { (it.endMinute - it.startMinute).coerceAtLeast(0) }
+    val totalFee = schedule.sumOf { it.fee.toDouble() }
 
     Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+        modifier = modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SectionCard("每周安排") {
@@ -287,23 +288,15 @@ private fun ScheduleTab(
                 Spacer(Modifier.width(10.dp))
                 StatTile("每周时长", formatDurationMin(totalMinutes), Modifier.weight(1f))
             }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            WEEKDAYS.forEachIndexed { index, label ->
-                FilterChip(
-                    selected = selectedWeekday == index + 1,
-                    onClick = { onSelectWeekday(index + 1) },
-                    label = { Text(label, style = MaterialTheme.typography.labelMedium) },
-                    modifier = Modifier.weight(1f)
-                )
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth()) {
+                StatTile("每周课费", "¥${money(totalFee.toFloat())}", Modifier.weight(1f))
+                Spacer(Modifier.width(10.dp))
+                StatTile("今天", "${schedule.count { it.weekday == todayWeekday }} 节", Modifier.weight(1f))
             }
         }
 
-        if (dayItems.isEmpty()) {
+        if (schedule.isEmpty()) {
             Card(Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
@@ -313,24 +306,192 @@ private fun ScheduleTab(
                 ) {
                     Text("🗓️", fontSize = 30.sp)
                     Spacer(Modifier.height(8.dp))
-                    EmptyHint("${WEEKDAYS[selectedWeekday - 1]}还没有排课，点右下角添加吧")
+                    EmptyHint("还没有排课，点右下角添加吧")
                 }
             }
         } else {
-            dayItems.forEach { item ->
-                ScheduleCard(
+            WeeklyGrid(
+                schedule = schedule,
+                todayWeekday = todayWeekday,
+                onEdit = onEdit,
+                onDelete = onDelete
+            )
+        }
+        Spacer(Modifier.height(72.dp))
+    }
+}
+
+@Composable
+private fun WeeklyGrid(
+    schedule: List<TutorScheduleEntity>,
+    todayWeekday: Int,
+    onEdit: (TutorScheduleEntity) -> Unit,
+    onDelete: (TutorScheduleEntity) -> Unit
+) {
+    val minStart = schedule.minOf { it.startMinute }
+    val maxEnd = schedule.maxOf { it.endMinute }
+    val startHour = (minStart / 60).coerceIn(GRID_MIN_HOUR, GRID_MAX_HOUR - 1)
+    val endHour = ((maxEnd + 59) / 60).coerceIn(startHour + 1, GRID_MAX_HOUR)
+    val totalHours = endHour - startHour
+    val totalHeight = HOUR_HEIGHT * totalHours
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        Column(Modifier.width(44.dp)) {
+            Spacer(Modifier.height(24.dp))
+            repeat(totalHours) { h ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(HOUR_HEIGHT),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Text(
+                        "${startHour + h}:00",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 6.dp, top = 2.dp)
+                    )
+                }
+            }
+        }
+        WEEKDAYS.forEachIndexed { index, label ->
+            val weekday = index + 1
+            val items = schedule
+                .filter { it.weekday == weekday }
+                .sortedBy { it.startMinute }
+            DayColumn(
+                label = label,
+                isToday = weekday == todayWeekday,
+                items = items,
+                startHour = startHour,
+                totalHours = totalHours,
+                totalHeight = totalHeight,
+                onEdit = onEdit,
+                onDelete = onDelete
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayColumn(
+    label: String,
+    isToday: Boolean,
+    items: List<TutorScheduleEntity>,
+    startHour: Int,
+    totalHours: Int,
+    totalHeight: Dp,
+    onEdit: (TutorScheduleEntity) -> Unit,
+    onDelete: (TutorScheduleEntity) -> Unit
+) {
+    Column(Modifier.width(DAY_COLUMN_WIDTH)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp)
+                .background(
+                    if (isToday) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                color = if (isToday) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(totalHeight)
+                .background(
+                    if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)
+                    else Color.Transparent
+                )
+        ) {
+            repeat(totalHours + 1) { h ->
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .offset(y = HOUR_HEIGHT * h)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                )
+            }
+            items.forEach { item ->
+                val top = HOUR_HEIGHT * ((item.startMinute - startHour * 60).toFloat() / 60f)
+                val duration = (item.endMinute - item.startMinute).coerceAtLeast(30)
+                val blockHeight = HOUR_HEIGHT * (duration / 60f)
+                val conflict = items.any {
+                    it.id != item.id &&
+                        item.startMinute < it.endMinute &&
+                        item.endMinute > it.startMinute
+                }
+                ScheduleBlock(
                     item = item,
-                    conflicts = dayItems.any {
-                        it.id != item.id &&
-                            item.startMinute < it.endMinute &&
-                            item.endMinute > it.startMinute
-                    },
-                    onEdit = { onEdit(item) },
-                    onDelete = { onDelete(item) }
+                    conflict = conflict,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp)
+                        .offset(y = top)
+                        .height(blockHeight - 2.dp),
+                    onClick = { onEdit(item) }
                 )
             }
         }
-        Spacer(Modifier.height(56.dp))
+    }
+}
+
+@Composable
+private fun ScheduleBlock(
+    item: TutorScheduleEntity,
+    conflict: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val background = if (conflict) MaterialTheme.colorScheme.errorContainer
+    else MaterialTheme.colorScheme.primaryContainer
+    val contentColor = if (conflict) MaterialTheme.colorScheme.onErrorContainer
+    else MaterialTheme.colorScheme.onPrimaryContainer
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 5.dp, vertical = 3.dp)
+    ) {
+        Column {
+            Text(
+                "${formatMinute(item.startMinute)}-${formatMinute(item.endMinute)}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = contentColor,
+                maxLines = 1
+            )
+            Text(
+                item.studentName + if (item.subject.isNotBlank()) "·${item.subject}" else "",
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor.copy(alpha = 0.85f),
+                maxLines = 1
+            )
+            if (item.fee > 0f) {
+                Text(
+                    "¥${money(item.fee)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    maxLines = 1
+                )
+            }
+        }
     }
 }
 
@@ -666,7 +827,8 @@ private fun IncomeDialog(
 private fun ScheduleDialog(
     item: TutorScheduleEntity?,
     defaultWeekday: Int,
-    onConfirm: (Int, Int, Int, String, String, String, (Boolean) -> Unit) -> Unit,
+    onConfirm: (Int, Int, Int, String, String, String, Float, (Boolean) -> Unit) -> Unit,
+    onDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var weekday by remember { mutableIntStateOf(item?.weekday ?: defaultWeekday) }
@@ -675,6 +837,9 @@ private fun ScheduleDialog(
     var startText by remember { mutableStateOf(formatMinute(item?.startMinute ?: (18 * 60))) }
     var endText by remember { mutableStateOf(formatMinute(item?.endMinute ?: (20 * 60))) }
     var note by remember { mutableStateOf(item?.note ?: "") }
+    var feeText by remember {
+        mutableStateOf(item?.fee?.takeIf { it > 0f }?.let { money(it) } ?: "")
+    }
     var error by remember { mutableStateOf("") }
     var checking by remember { mutableStateOf(false) }
     var conflictError by remember { mutableStateOf("") }
@@ -736,6 +901,15 @@ private fun ScheduleDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                OutlinedTextField(
+                    value = feeText,
+                    onValueChange = { feeText = it },
+                    label = { Text("课费（元，选填）") },
+                    placeholder = { Text("200") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (error.isNotBlank()) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
@@ -759,7 +933,16 @@ private fun ScheduleDialog(
                             checking = true
                             error = ""
                             conflictError = ""
-                            onConfirm(weekday, start, end, student.trim(), subject.trim(), note.trim()) { success ->
+                            val fee = feeText.toFloatOrNull()?.coerceAtLeast(0f) ?: 0f
+                            onConfirm(
+                                weekday,
+                                start,
+                                end,
+                                student.trim(),
+                                subject.trim(),
+                                note.trim(),
+                                fee
+                            ) { success ->
                                 checking = false
                                 if (!success) {
                                     conflictError = "该时间段已有排课，请调整时间"
@@ -773,7 +956,14 @@ private fun ScheduleDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text("删除", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("取消") }
+            }
         }
     )
 }
