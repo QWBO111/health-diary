@@ -7,6 +7,29 @@
 项目希望解决的不是“记录更多”，而是让不同类型的个人记录能够在一个 App 中长期、连续地保存下来。
 
 目前项目仍处于持续开发阶段。
+## 📱 应用预览
+
+<p align="center">
+  <img src="docs/images/example1.png" width="30%" alt="闲记应用界面 1" />
+  &nbsp;
+  <img src="docs/images/example2.png" width="30%" alt="闲记应用界面 2" />
+  &nbsp;
+  <img src="docs/images/example3.png" width="30%" alt="闲记应用界面 3" />
+</p>
+
+<p align="center">
+  <img src="docs/images/example4.png" width="30%" alt="闲记应用界面 4" />
+  &nbsp;
+  <img src="docs/images/example5.png" width="30%" alt="闲记应用界面 5" />
+  &nbsp;
+  <img src="docs/images/example6.png" width="30%" alt="闲记应用界面 6" />
+</p>
+
+<p align="center">
+  <sub>训练 · 饮食 · 身体 · 日记 · 家教 · 日常记录</sub>
+</p>
+
+---
 
 ---
 
