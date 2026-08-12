@@ -28,7 +28,7 @@ class SettingsRepository(private val context: Context) {
         }
 
     val heightCm: Flow<Int> =
-        context.settingsDataStore.data.map { it[Keys.HEIGHT_CM] ?: 175 }
+        context.settingsDataStore.data.map { it[Keys.HEIGHT_CM] ?: 0 }
 
     suspend fun setReminderEnabled(enabled: Boolean) {
         context.settingsDataStore.edit { it[Keys.REMINDER_ENABLED] = enabled }

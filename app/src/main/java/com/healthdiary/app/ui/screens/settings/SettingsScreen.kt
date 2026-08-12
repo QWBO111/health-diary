@@ -56,8 +56,10 @@ fun SettingsScreen(
     val heightCm by viewModel.heightCm.collectAsStateWithLifecycle()
     var showTimePicker by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
-    var heightInput by remember { mutableStateOf(heightCm.toString()) }
-    LaunchedEffect(heightCm) { heightInput = heightCm.toString() }
+    var heightInput by remember { mutableStateOf(if (heightCm > 0) heightCm.toString() else "") }
+    LaunchedEffect(heightCm) {
+        heightInput = if (heightCm > 0) heightCm.toString() else ""
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip")

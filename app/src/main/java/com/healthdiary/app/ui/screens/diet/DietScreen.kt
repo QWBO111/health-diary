@@ -198,9 +198,11 @@ private fun NutritionOverview(meals: List<MealRecordWithFood>) {
     val cKcal = carbs * 4.0
     val fKcal = fat * 9.0
     val total = pKcal + cKcal + fKcal
-    val pWeight = (pKcal / total).toFloat()
-    val cWeight = (cKcal / total).toFloat()
-    val fWeight = (fKcal / total).toFloat()
+    // avoid NaN when no macro nutrients are recorded (total == 0)
+    val safeTotal = if (total > 0.0) total else 1.0
+    val pWeight = (pKcal / safeTotal).toFloat()
+    val cWeight = (cKcal / safeTotal).toFloat()
+    val fWeight = (fKcal / safeTotal).toFloat()
 
     Card(
         colors = CardDefaults.cardColors(
@@ -287,19 +289,19 @@ private fun NutritionOverview(meals: List<MealRecordWithFood>) {
                 MacroRow(
                     label = "蛋白质",
                     grams = protein,
-                    percent = (pKcal / total * 100).roundToInt(),
+                    percent = (pKcal / safeTotal * 100).roundToInt(),
                     color = PROTEIN_COLOR
                 )
                 MacroRow(
                     label = "碳水",
                     grams = carbs,
-                    percent = (cKcal / total * 100).roundToInt(),
+                    percent = (cKcal / safeTotal * 100).roundToInt(),
                     color = CARBS_COLOR
                 )
                 MacroRow(
                     label = "脂肪",
                     grams = fat,
-                    percent = (fKcal / total * 100).roundToInt(),
+                    percent = (fKcal / safeTotal * 100).roundToInt(),
                     color = FAT_COLOR
                 )
             }

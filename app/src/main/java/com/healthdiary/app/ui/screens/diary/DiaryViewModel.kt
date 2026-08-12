@@ -13,6 +13,8 @@ import com.healthdiary.app.data.local.DiaryMediaEntity
 import com.healthdiary.app.util.Dates
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -21,22 +23,25 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as HealthDiaryApp).container
 
+    private val dateFlow = MutableStateFlow(Dates.today())
     var date: String by mutableStateOf(Dates.today())
         private set
     var mood: String by mutableStateOf("")
     var moodScore: Int by mutableStateOf(0)
     var text: String by mutableStateOf("")
 
-    val entry: StateFlow<DiaryEntryWithMedia?> =
-        container.diaryRepository.entryWithMedia(date)
+    val entry: StateFlow<DiaryEntryWithMedia?> = dateFlow
+            .flatMapLatest { container.diaryRepository.entryWithMedia(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     fun changeDate(offset: Int) {
-        date = runCatching {
+        val newDate = runCatching {
             LocalDate.parse(date).plusDays(offset.toLong()).toString()
         }.getOrDefault(Dates.today())
+        date = newDate
+        dateFlow.value = newDate
         viewModelScope.launch {
-            val e = container.diaryRepository.getEntry(date)
+            val e = container.diaryRepository.getEntry(newDate)
             mood = e?.mood ?: ""
             moodScore = e?.moodScore ?: 0
             text = e?.text ?: ""

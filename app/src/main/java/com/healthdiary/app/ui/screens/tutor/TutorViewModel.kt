@@ -12,6 +12,8 @@ import com.healthdiary.app.data.local.TutorScheduleEntity
 import com.healthdiary.app.util.Dates
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -20,11 +22,12 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as HealthDiaryApp).container
 
+    private val dateFlow = MutableStateFlow(Dates.today())
     var date: String by mutableStateOf(Dates.today())
         private set
 
-    val incomeByDate: StateFlow<List<TutorIncomeEntity>> =
-        container.tutorRepository.incomeByDate(date)
+    val incomeByDate: StateFlow<List<TutorIncomeEntity>> = dateFlow
+            .flatMapLatest { container.tutorRepository.incomeByDate(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allIncome: StateFlow<List<TutorIncomeEntity>> =
@@ -36,9 +39,11 @@ class TutorViewModel(app: Application) : AndroidViewModel(app) {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun changeDate(offset: Int) {
-        date = runCatching {
+        val newDate = runCatching {
             LocalDate.parse(date).plusDays(offset.toLong()).toString()
         }.getOrDefault(Dates.today())
+        date = newDate
+        dateFlow.value = newDate
     }
 
     fun addIncome(

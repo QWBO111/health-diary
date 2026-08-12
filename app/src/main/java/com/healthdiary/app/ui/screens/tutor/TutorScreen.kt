@@ -197,7 +197,7 @@ fun TutorScreen(viewModel: TutorViewModel = viewModel()) {
         ScheduleDialog(
             item = editingSchedule,
             defaultWeekday = selectedWeekday,
-            onConfirm = { weekday, startMin, endMin, student, subject, note ->
+            onConfirm = { weekday, startMin, endMin, student, subject, note, onResult ->
                 val item = editingSchedule
                 viewModel.checkConflict(weekday, startMin, endMin, item?.id ?: -1L) { conflict ->
                     if (!conflict) {
@@ -208,6 +208,7 @@ fun TutorScreen(viewModel: TutorViewModel = viewModel()) {
                         }
                         showScheduleDialog = false
                     }
+                    onResult(!conflict)
                 }
             },
             onDismiss = { showScheduleDialog = false }
@@ -665,7 +666,7 @@ private fun IncomeDialog(
 private fun ScheduleDialog(
     item: TutorScheduleEntity?,
     defaultWeekday: Int,
-    onConfirm: (Int, Int, Int, String, String, String) -> Unit,
+    onConfirm: (Int, Int, Int, String, String, String, (Boolean) -> Unit) -> Unit,
     onDismiss: () -> Unit
 ) {
     var weekday by remember { mutableIntStateOf(item?.weekday ?: defaultWeekday) }
@@ -676,6 +677,7 @@ private fun ScheduleDialog(
     var note by remember { mutableStateOf(item?.note ?: "") }
     var error by remember { mutableStateOf("") }
     var checking by remember { mutableStateOf(false) }
+    var conflictError by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -737,6 +739,9 @@ private fun ScheduleDialog(
                 if (error.isNotBlank()) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
+                if (conflictError.isNotBlank()) {
+                    Text(conflictError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         confirmButton = {
@@ -753,8 +758,13 @@ private fun ScheduleDialog(
                         else -> {
                             checking = true
                             error = ""
-                            onConfirm(weekday, start, end, student.trim(), subject.trim(), note.trim())
-                            checking = false
+                            conflictError = ""
+                            onConfirm(weekday, start, end, student.trim(), subject.trim(), note.trim()) { success ->
+                                checking = false
+                                if (!success) {
+                                    conflictError = "该时间段已有排课，请调整时间"
+                                }
+                            }
                         }
                     }
                 }

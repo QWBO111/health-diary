@@ -81,26 +81,43 @@ class BackupRepository(
         }
 
         val data = json ?: error("备份文件缺少 data.json")
-        val mediaMap = restoreMediaFiles(tempDir, data)
+        try {
+            val existingPaths = mediaStore.allMediaFiles().map { it.absolutePath }.toHashSet()
+            val mediaMap = restoreMediaFiles(tempDir, data)
+            val newFiles = mediaStore.allMediaFiles().filter { it.absolutePath !in existingPaths }
 
-        db.withTransaction {
-            clearAll()
-            restoreWorkout(data)
-            restoreDiet(data, mediaMap)
-            restoreBody(data, mediaMap)
-            restoreDiary(data, mediaMap)
-            restoreTutor(data)
+            try {
+                db.withTransaction {
+                    clearAll()
+                    restoreWorkout(data)
+                    restoreDiet(data, mediaMap)
+                    restoreBody(data, mediaMap)
+                    restoreDiary(data, mediaMap)
+                    restoreTutor(data)
+                }
+            } catch (e: Exception) {
+                newFiles.forEach { it.delete() }
+                throw e
+            }
+
+            val kept = mediaMap.values.toHashSet()
+            existingPaths.forEach { path ->
+                if (path !in kept) File(path).delete()
+            }
+
+            return BackupResult(
+                recordCount = listOf(
+                    "workoutSessions", "workoutExercises", "workoutSets", "exerciseLibrary",
+                    "mealRecords", "foodEntries", "foodLibrary",
+                    "bodyMetrics", "bodyPhotos",
+                    "diaryEntries", "diaryMedia",
+                    "tutorIncome", "tutorSchedule"
+                ).sumOf { data.optJSONArray(it)?.length() ?: 0 },
+                mediaCount = mediaMap.size
+            )
+        } finally {
+            tempDir.deleteRecursively()
         }
-
-        tempDir.deleteRecursively()
-        return BackupResult(
-            recordCount = data.getJSONArray("workoutSessions").length() +
-                data.getJSONArray("mealRecords").length() +
-                data.getJSONArray("bodyMetrics").length() +
-                data.getJSONArray("diaryEntries").length() +
-                data.getJSONArray("tutorIncome").length(),
-            mediaCount = mediaMap.size
-        )
     }
 
     // ---------- 导出辅助 ----------
@@ -166,8 +183,6 @@ class BackupRepository(
             if (p.isNotBlank()) keys.add(p)
         }
         forEachJson(data, "diaryMedia") { keys.add(it.optString("filePath")) }
-
-        mediaStore.allMediaFiles().forEach { it.delete() }
 
         val map = mutableMapOf<String, String>()
         keys.filter { it.startsWith("media/") }.forEach { key ->
