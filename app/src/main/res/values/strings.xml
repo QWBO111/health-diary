@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">博^_^</string>
+    <string name="app_name">闲记</string>
     <string name="notification_channel_name">每日提醒</string>
     <string name="notification_channel_desc">提醒称重、记录训练和写日记</string>
 </resources>

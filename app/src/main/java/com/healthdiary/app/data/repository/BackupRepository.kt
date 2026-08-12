@@ -124,7 +124,7 @@ class BackupRepository(
 
     private suspend fun buildJson(): JSONObject {
         val root = JSONObject()
-        root.put("app", "博^_^")
+        root.put("app", "闲记")
         root.put("schemaVersion", 1)
         root.put("exportedAt", System.currentTimeMillis())
 
