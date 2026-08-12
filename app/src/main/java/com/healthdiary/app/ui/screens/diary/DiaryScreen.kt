@@ -7,15 +7,17 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,23 +26,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -50,13 +61,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,17 +81,21 @@ import com.healthdiary.app.HealthDiaryApp
 import com.healthdiary.app.data.local.DiaryMediaEntity
 import com.healthdiary.app.ui.components.DateSelector
 import com.healthdiary.app.ui.components.SectionCard
-import com.healthdiary.app.util.Dates
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 
-private val EMOJIS = listOf("😞", "😕", "😐", "🙂", "😄")
+private data class MoodOption(val score: Int, val emoji: String, val label: String)
 
-@OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalLayoutApi::class,
-    ExperimentalFoundationApi::class
+private val MOODS = listOf(
+    MoodOption(1, "😥", "糟糕"),
+    MoodOption(2, "😞", "低落"),
+    MoodOption(3, "😐", "平静"),
+    MoodOption(4, "🙂", "开心"),
+    MoodOption(5, "😄", "超棒")
 )
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
     val context = LocalContext.current
@@ -92,6 +112,10 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
     var recordingError by remember { mutableStateOf<String?>(null) }
     var playingPath by remember { mutableStateOf<String?>(null) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
+    var viewPhotoPath by remember { mutableStateOf<String?>(null) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     fun startRecording() {
         val file = mediaStore.newAudioFile()
@@ -196,7 +220,32 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("日记") }) }
+        topBar = { TopAppBar(title = { Text("日记") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            Surface(tonalElevation = 3.dp) {
+                Button(
+                    onClick = {
+                        viewModel.saveEntry {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("日记已保存 ✓")
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("保存日记")
+                }
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -209,17 +258,16 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
             DateSelector(viewModel.date) { viewModel.changeDate(it) }
 
             SectionCard("今天的心情") {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    EMOJIS.forEachIndexed { index, emoji ->
-                        FilterChip(
-                            selected = viewModel.moodScore == index + 1,
-                            onClick = { viewModel.setMood(index + 1) },
-                            label = {
-                                Text(
-                                    emoji,
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MOODS.forEach { mood ->
+                        MoodCard(
+                            option = mood,
+                            selected = viewModel.moodScore == mood.score,
+                            onClick = { viewModel.setMood(mood.score) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -229,46 +277,81 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
                 OutlinedTextField(
                     value = viewModel.text,
                     onValueChange = { viewModel.text = it },
-                    label = { Text("记录今天发生的事、想法、感受…") },
+                    placeholder = { Text("记录今天发生的事、想法、感受…") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 140.dp)
+                        .heightIn(min = 150.dp)
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "已写 ${viewModel.text.length} 字",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.End)
                 )
             }
 
             SectionCard("照片") {
-                if (photos.isNotEmpty()) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                if (photos.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        photos.forEach { media ->
-                            Box {
-                                AsyncImage(
-                                    model = File(media.filePath),
-                                    contentDescription = "日记照片",
+                        Text("🖼️", fontSize = 28.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "还没有照片，记录下今天的瞬间吧",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    photos.chunked(2).forEach { rowPhotos ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowPhotos.forEach { media ->
+                                Box(
                                     modifier = Modifier
-                                        .size(84.dp)
-                                        .clip(RoundedCornerShape(10.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                                IconButton(
-                                    onClick = { viewModel.deleteMedia(media) },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .size(28.dp)
-                                        .background(MaterialTheme.colorScheme.surface)
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { viewPhotoPath = media.filePath }
                                 ) {
-                                    Icon(
-                                        Icons.Outlined.Delete,
-                                        contentDescription = "删除照片",
-                                        modifier = Modifier.size(16.dp)
+                                    AsyncImage(
+                                        model = File(media.filePath),
+                                        contentDescription = "日记照片",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
+                                    IconButton(
+                                        onClick = { viewModel.deleteMedia(media) },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(30.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                                CircleShape
+                                            )
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Delete,
+                                            contentDescription = "删除照片",
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
+                            }
+                            if (rowPhotos.size == 1) {
+                                Spacer(Modifier.weight(1f))
                             }
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
@@ -278,8 +361,15 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
                                     ActivityResultContracts.PickVisualMedia.ImageOnly
                                 )
                             )
-                        }
+                        },
+                        modifier = Modifier.weight(1f)
                     ) {
+                        Icon(
+                            Icons.Outlined.PhotoLibrary,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text("从相册选择")
                     }
                     OutlinedButton(
@@ -292,7 +382,8 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
                             )
                             cameraUri = uri
                             cameraLauncher.launch(uri)
-                        }
+                        },
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             Icons.Outlined.PhotoCamera,
@@ -308,7 +399,7 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
             SectionCard("语音") {
                 if (recordingError != null) {
                     Text(
-                        recordingError!!,
+                        text = recordingError!!,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -317,27 +408,45 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
                 if (isRecording) {
                     Button(
                         onClick = { stopRecording() },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
                     ) {
                         Icon(Icons.Outlined.Stop, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("停止录音 ${formatRecordTime(recordElapsed)}")
                     }
                 } else {
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             stopPlayer()
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        Icon(
+                            Icons.Outlined.Mic,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text("开始录音")
                     }
                 }
-                if (audios.isNotEmpty()) {
+
+                if (audios.isEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "还没有语音记录",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
                     Spacer(Modifier.height(8.dp))
                     audios.forEach { media ->
-                        AudioRow(
+                        AudioCard(
                             media = media,
                             playing = playingPath == media.filePath,
                             onPlayToggle = { play(media.filePath) },
@@ -350,41 +459,148 @@ fun DiaryScreen(viewModel: DiaryViewModel = viewModel()) {
                 }
             }
 
-            Button(
-                onClick = { viewModel.saveEntry() },
-                modifier = Modifier.fillMaxWidth()
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    viewPhotoPath?.let { path ->
+        PhotoViewerDialog(path = path, onDismiss = { viewPhotoPath = null })
+    }
+}
+
+@Composable
+private fun MoodCard(
+    option: MoodOption,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.06f else 1f,
+        label = "moodScale"
+    )
+    val container = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    }
+    val border = if (selected) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        null
+    }
+    Column(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(16.dp))
+            .background(container)
+            .then(if (border != null) Modifier.border(border, RoundedCornerShape(16.dp)) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(option.emoji, fontSize = 26.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = option.label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+    }
+}
+
+@Composable
+private fun AudioCard(
+    media: DiaryMediaEntity,
+    playing: Boolean,
+    onPlayToggle: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onPlayToggle,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (playing) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                    )
             ) {
-                Text("保存日记")
+                Icon(
+                    if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                    contentDescription = if (playing) "暂停" else "播放",
+                    tint = if (playing) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (playing) "正在播放" else "语音录音",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (playing) FontWeight.Bold else FontWeight.Normal
+                )
+                if (media.durationSec > 0) {
+                    Text(
+                        text = formatRecordTime(media.durationSec * 1000L),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = "删除语音",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AudioRow(
-    media: DiaryMediaEntity,
-    playing: Boolean,
-    onPlayToggle: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPlayToggle) {
-            Icon(
-                if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                contentDescription = if (playing) "暂停" else "播放"
+private fun PhotoViewerDialog(path: String, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(8.dp)
+        ) {
+            AsyncImage(
+                model = File(path),
+                contentDescription = "查看照片",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp),
+                contentScale = ContentScale.Fit
             )
-        }
-        Text(
-            "语音 ${if (media.durationSec > 0) "${media.durationSec}秒" else ""}",
-            modifier = Modifier.weight(1f)
-        )
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Outlined.Delete, contentDescription = "删除语音")
         }
     }
 }
